@@ -6,7 +6,7 @@ Function:
 2. Compute distance matrice for each atoms' pair
 
 
-Usage: python POSCAR2distance [-h] [--output OUTPUT] [--symmetry SYMMETRY] [--dist] [--info] filename
+Usage: python POSCAR2info [-h] [--output OUTPUT] [--symmetry SYMMETRY] [--dist] [--info] filename
 positional arguments:
   filename             input POSCAR name
 
