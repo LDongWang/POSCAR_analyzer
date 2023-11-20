@@ -44,7 +44,8 @@ def lattice_info(lattice_vector):
     alpha = np.rad2deg(np.arccos(b@c/b_norm/c_norm))
     beta = np.rad2deg(np.arccos(a@c/a_norm/c_norm))
     gamma = np.rad2deg(np.arccos(a@b/a_norm/b_norm))
-    return [lattice_norm, [alpha, beta, gamma]]
+    volume = np.cross(a,b)@c.T
+    return [lattice_norm, [alpha, beta, gamma], volume]
     
     
 import numpy as np
@@ -55,6 +56,7 @@ parser.add_argument('--output', default='POSCARinfo', help='output filename')
 parser.add_argument('--symmetry', default='p1', help='specify symmetry point group')
 parser.add_argument('--dist', action='store_true', help='output distance matrice')
 parser.add_argument('--info', action='store_true', help='output lattice information')
+parser.add_argument('--noshift', action='store_true', help='specify no periodic boundary condition')
 args = parser.parse_args()
 with open(args.filename,'r') as f:
     title = f.readline()
@@ -75,7 +77,7 @@ with open(args.filename,'r') as f:
 with open(args.output, mode='w', encoding='utf-8', newline='\n') as f:
     f.write(title+'\n')
     if args.info:
-        lattice_norm, lattice_angles = lattice_info(lattice_vector)
+        lattice_norm, lattice_angles, lattice_volume = lattice_info(lattice_vector)
         f.write('Lattice Information\n')
         f.write('cell_length_a:\t{:.3f}\n'.format(lattice_norm[0]))
         f.write('cell_length_b:\t{:.3f}\n'.format(lattice_norm[1]))
@@ -83,6 +85,7 @@ with open(args.output, mode='w', encoding='utf-8', newline='\n') as f:
         f.write('cell_angle_alpha:\t{:.3f}\n'.format(lattice_angles[0]))
         f.write('cell_angle_beta:\t{:.3f}\n'.format(lattice_angles[1]))
         f.write('cell_angle_gamma:\t{:.3f}\n'.format(lattice_angles[2]))
+        f.write('Lattice_volume:\t{:.3f}\n'.format(lattice_volume))
     if args.dist:
         f.write('Distance Matrix\n')
         f.write(' '.join(ele_names)+'\n')
@@ -93,6 +96,5 @@ with open(args.output, mode='w', encoding='utf-8', newline='\n') as f:
             f.write(left_name+'\t')
             for j in range(len(atm_list)):
                 right_name = atm_list[j].name
-                f.write('{:.3f}\t'.format(adj_dist(atm_list[i],atm_list[j],origin_lattice_vector)))
+                f.write('{:.3f}\t'.format(adj_dist(atm_list[i],atm_list[j],origin_lattice_vector,no_shift=args.noshift)))
             f.write('\n')
-    
