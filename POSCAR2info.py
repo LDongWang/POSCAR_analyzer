@@ -1,9 +1,11 @@
 class Atom:
-    def __init__(self, name, pos):
-        self.name = name
+    def __init__(self, ele, no, pos):
+        self.ele = ele
+        self.no = no
         self.pos = pos
+        self.name = ele+no
     def __str__(self):
-        return f"{self.name}:{self.pos}"
+        return f"{self.name}{self.no}:{self.pos}"
 
     
 def adj_dist(Atom1, Atom2, lattice_vector, no_shift=False):
@@ -50,11 +52,16 @@ def lattice_info(lattice_vector):
     
 import numpy as np
 import argparse
+from scipy.stats import gaussian_kde
+import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser('''python POSCAR2distance.py''')
 parser.add_argument('filename', help='input POSCAR name')
 parser.add_argument('--output', default='POSCARinfo', help='output filename')
 parser.add_argument('--symmetry', default='p1', help='specify symmetry point group')
 parser.add_argument('--dist', action='store_true', help='output distance matrice')
+parser.add_argument('--plot', action='store_true', help='plot bond distribution')
+parser.add_argument('--pair', nargs='+', help='Atoms pair to plot, e.g., Ti-O Zr-O')
+parser.add_argument('--bandwidth', type=float, default=0.20, help='Bandwidth for KDE. Default is 0.20.')
 parser.add_argument('--info', action='store_true', help='output lattice information')
 parser.add_argument('--noshift', action='store_true', help='specify no periodic boundary condition')
 args = parser.parse_args()
@@ -73,7 +80,7 @@ with open(args.filename,'r') as f:
     for i in range(len(ele_names)):
         for j in range(ele_nums[i]):
             pos = np.array(f.readline().split(),dtype=float)
-            atm_list.append(Atom(ele_names[i]+str(j+1),pos))
+            atm_list.append(Atom(ele_names[i],str(j+1),pos))
 with open(args.output, mode='w', encoding='utf-8', newline='\n') as f:
     f.write(title+'\n')
     if args.info:
@@ -91,10 +98,44 @@ with open(args.output, mode='w', encoding='utf-8', newline='\n') as f:
         f.write(' '.join(ele_names)+'\n')
         f.write(' '.join(str(i) for i in ele_nums)+'\n')
         f.write('\t'+'\t'.join(atm.name for atm in atm_list)+'\n')
+        dist_matrix = np.zeros((len(atm_list),len(atm_list)))
+        if args.plot:
+            dist_list = {}
         for i in range(len(atm_list)):
             left_name = atm_list[i].name
             f.write(left_name+'\t')
             for j in range(len(atm_list)):
                 right_name = atm_list[j].name
-                f.write('{:.3f}\t'.format(adj_dist(atm_list[i],atm_list[j],origin_lattice_vector,no_shift=args.noshift)))
+                dist_matrix[i][j] = adj_dist(atm_list[i],atm_list[j],origin_lattice_vector,no_shift=args.noshift)
+                list_name = atm_list[i].ele+'-'+atm_list[j].ele
+                if list_name in dist_list:
+                    dist_list[list_name].append(dist_matrix[i][j])
+                else:
+                    dist_list[list_name] = [dist_matrix[i][j]]
+                f.write('{:.3f}\t'.format(dist_matrix[i][j]))
             f.write('\n')
+
+if args.plot:
+    pairs = args.pair
+    colors = ['b', 'r', 'g', 'c', 'm', 'y']
+    plt.figure(figsize=(10, 6))
+    for idx, pair in enumerate(pairs):
+        if pair in dist_list:
+            distances = np.array(dist_list[pair])
+            kde = gaussian_kde(distances, bw_method=args.bandwidth)
+            distance_range = np.linspace(1.0, 7.0, 500)
+            plt.plot(distance_range, kde(distance_range), label=f'{pair} bonds', color=colors[idx])
+        else:
+            raise ValueError('Pair is not in your POSCAR, please check.')
+    plt.xlabel(r'Bond Length / $\AA$')
+    plt.ylabel('Density / Arbitary Unit')
+    plt.title('Pair Distribution')
+    plt.grid(False)
+    plt.legend()
+    plt.xlim([1.0,7.0])
+    plt.ylim([0.0,1.5])
+    plt.savefig('bond_dist.png',transparent = True,format='png')
+    plt.show()
+        
+
+
